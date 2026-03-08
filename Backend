@@ -1,0 +1,134 @@
+import { redirect } from 'next/navigation';
+import { z } from 'zod';
+import { findAuthorityUser } from '@/lib/data';
+
+const formSchema = z.object({
+  placeId: z.string(),
+  userId: z.string(),
+  accountNumber: z.string(),
+  email: z.string().email(),
+});
+
+type VerificationResult = {
+  success: boolean;
+  userId?: string;
+  error?: string;
+};
+
+export async function verifyAuthority(data: unknown): Promise<VerificationResult> {
+  const parsed = formSchema.safeParse(data);
+
+  if (!parsed.success) {
+    return { success: false, error: 'Invalid data format.' };
+  }
+
+  const user = await findAuthorityUser(parsed.data);
+
+  if (user) {
+    // In a real app, you would set a session cookie here.
+    // For this simulation, we will redirect with params.
+    return { success: true, userId: user.id };
+  } else {
+    return { success: false, error: 'Invalid credentials or place selection.' };
+  }
+}
+import type { CrowdData, Place } from './types';
+
+const getWeatherFactor = (temp: number, rainProb: number): number => {
+  let factor = 1.0;
+  if (temp > 35) factor -= 0.2; // Extreme heat reduces crowds
+  if (temp < 10) factor -= 0.1; // Extreme cold reduces crowds
+  if (rainProb > 50) factor -= 0.3; // Rain reduces crowds
+  return Math.max(0.1, factor); // Ensure factor doesn't go below 0.1
+};
+
+export const getRiskLevel = (
+  predictedCrowd: number
+): 'Low' | 'Medium' | 'High' => {
+  if (predictedCrowd > 30000) return 'High';
+  if (predictedCrowd >= 10000 && predictedCrowd <= 30000) return 'Medium';
+  return 'Low';
+};
+
+export const predictCrowdForToday = (
+  place: Place,
+  todayCrowdData: CrowdData | undefined,
+  weather: { temperature: number, rainProbability: number }
+): { predictedCrowd: number; riskLevel: 'Low' | 'Medium' | 'High' } => {
+  
+  if (todayCrowdData?.predictedCrowd) {
+    const riskLevel = getRiskLevel(todayCrowdData.predictedCrowd);
+    return { predictedCrowd: todayCrowdData.predictedCrowd, riskLevel };
+  }
+  
+  const weatherFactor = getWeatherFactor(weather.temperature, weather.rainProbability);
+  const holidayMultiplier = todayCrowdData?.isHoliday ? 1.6 : 1.0;
+
+  const predictedCrowd = Math.floor(place.averageDailyCrowd * weatherFactor * holidayMultiplier);
+  const riskLevel = getRiskLevel(predictedCrowd);
+
+  return { predictedCrowd, riskLevel };
+};
+
+export const getBestTimeToVisit = (riskLevel: 'Low' | 'Medium' | 'High'): string => {
+    switch (riskLevel) {
+        case 'High':
+            return 'Early morning (7 AM - 9 AM) or late evening (6 PM onwards)';
+        case 'Medium':
+            return 'Morning (9 AM - 11 AM) or late afternoon (4 PM - 6 PM)';
+        case 'Low':
+        default:
+            return 'Anytime, but mornings are generally pleasant.';
+    }
+}
+import type { CrowdData, Place } from './types';
+
+
+const getWeatherFactor = (temp: number, rainProb: number): number => {
+  let factor = 1.0;
+  if (temp > 35) factor -= 0.2; // Extreme heat reduces crowds
+  if (temp < 10) factor -= 0.1; // Extreme cold reduces crowds
+  if (rainProb > 50) factor -= 0.3; // Rain reduces crowds
+  return Math.max(0.1, factor); // Ensure factor doesn't go below 0.1
+};
+
+export const getRiskLevel = (
+  predictedCrowd: number
+): 'Low' | 'Medium' | 'High' => {
+  if (predictedCrowd > 30000) return 'High';
+  if (predictedCrowd >= 10000 && predictedCrowd <= 30000) return 'Medium';
+  return 'Low';
+};
+
+export const predictCrowdForToday = (
+  place: Place,
+  todayCrowdData: CrowdData | undefined,
+  weather: { temperature: number, rainProbability: number }
+): { predictedCrowd: number; riskLevel: 'Low' | 'Medium' | 'High' } => {
+  
+  if (todayCrowdData?.predictedCrowd) {
+    const riskLevel = getRiskLevel(todayCrowdData.predictedCrowd);
+    return { predictedCrowd: todayCrowdData.predictedCrowd, riskLevel };
+  }
+  
+  
+  const weatherFactor = getWeatherFactor(weather.temperature, weather.rainProbability);
+  const holidayMultiplier = todayCrowdData?.isHoliday ? 1.6 : 1.0;
+
+  const predictedCrowd = Math.floor(place.averageDailyCrowd * weatherFactor * holidayMultiplier);
+  const riskLevel = getRiskLevel(predictedCrowd);
+
+  return { predictedCrowd, riskLevel };
+};
+
+export const getBestTimeToVisit = (riskLevel: 'Low' | 'Medium' | 'High'): string => {
+    switch (riskLevel) {
+        case 'High':
+            return 'Early morning (7 AM - 9 AM) or late evening (6 PM onwards)';
+        case 'Medium':
+            return 'Morning (9 AM - 11 AM) or late afternoon (4 PM - 6 PM)';
+        case 'Low':
+        default:
+            return 'Anytime, but mornings are generally pleasant.';
+    }
+}
