@@ -124,6 +124,6 @@ Public transportation hubs
 Stadiums and large gatherings
 Smart city infrastructure
 
-LICENSE
+LICENSE 
 
 This project is developed for educational and demonstration purposes.
